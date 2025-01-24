@@ -21,10 +21,14 @@
     "@react-native-async-storage/async-storage": "^2.1.0",
     "axios": "^1.7.9",
     "bcrypt": "^5.1.1",
+    "body-parser": "^1.20.3",
     "cors": "^2.8.5",
     "express": "^4.21.2",
+    "firebase-admin": "^13.0.2",
     "jsonwebtoken": "^9.0.2",
     "mysql2": "^3.12.0",
+    "node-cron": "^3.0.3",
     "socket.io": "^4.8.1"
-  }
+  },
+  "keywords": []
 }
