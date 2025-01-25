@@ -293,10 +293,11 @@ app.get("/", (req, res) => {
 
 app.post('/Detail', async (req, res) => {
   const { user_id, diary_date } = req.body;
+  console.log("Detail endpoint called. user_id:", user_id, "diary_date:", diary_date);
   const sql = 'SELECT * FROM diarytable WHERE user_id = ? AND diary_date = ?';
   try {
     const [results] = await db.query(sql, [user_id, diary_date]);
-    console.log("Query Results:", results);
+    console.log("Detail Results:", results);
     res.json({ success: true, message: '조회 성공', data: results });
   } catch(err){
     console.error('Error executing query:', err.message);
@@ -338,7 +339,7 @@ app.post("/login", async (req, res) => {
         `SELECT COUNT(*) AS count 
           FROM diarytable 
           WHERE user_id = ? 
-            AND privacy = 'couple' 
+            AND privacy = 'Couple' 
             AND diary_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)`,
         [id]
       );
@@ -347,7 +348,7 @@ app.post("/login", async (req, res) => {
       const [allDiaryCount] = await db.query(
         `SELECT COUNT(*) AS count 
           FROM diarytable 
-          WHERE user_id = ? AND privacy = 'couple'`,
+          WHERE user_id = ? AND privacy = 'Couple'`,
         [id]
       );
 
@@ -367,7 +368,7 @@ app.post("/login", async (req, res) => {
           `SELECT COUNT(*) AS count 
             FROM diarytable 
             WHERE user_id = ? 
-              AND privacy = 'couple' 
+              AND privacy = 'Couple' 
               AND diary_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)`,
           [coupleId]
         );
@@ -377,7 +378,7 @@ app.post("/login", async (req, res) => {
           `SELECT COUNT(*) AS count 
            FROM diarytable 
            WHERE user_id IN (?) 
-             AND privacy = 'couple'`,
+             AND privacy = 'Couple'`,
           [coupleId]
         );
 
@@ -399,7 +400,7 @@ app.post("/login", async (req, res) => {
         `SELECT feeling, COUNT(*) AS count 
          FROM diarytable 
          WHERE user_id = ? 
-           AND privacy = 'couple' 
+           AND privacy = 'Couple' 
            AND diary_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY) 
            AND feeling IN (1, 2, 3, 4, 5)
          GROUP BY feeling
@@ -411,7 +412,7 @@ app.post("/login", async (req, res) => {
         `SELECT feeling, COUNT(*) AS count 
          FROM diarytable 
          WHERE user_id = ? 
-           AND privacy = 'couple' 
+           AND privacy = 'Couple' 
            AND diary_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY) 
            AND feeling IN (1, 2, 3, 4, 5)
          GROUP BY feeling
@@ -486,37 +487,94 @@ app.post("/register", async (req, res) => {
 
 
 // diaryScreen 엔드포인트
-app.post("/api/diary", (req, res) => {
+app.post('/write-diary', async (req, res) => {
   const { title, user_id, content, feeling, privacy, diary_date } = req.body;
-  const query = `INSERT INTO diarytable (title, user_id, content, feeling, privacy, diary_date) VALUES (?, ?, ?, ?, ?, ?)`;
 
-  db.query(
-      query,
-      [title, user_id, content, feeling, privacy, diary_date],
-      (err, result) => {
-        if (err) {
-          console.error(err);
-          res.status(500).json({ error: "Failed to insert data into diarytable" });
-        } else {
-          res.status(201).json({ message: "Diary saved successfully", diaryId: result.insertId });
-        }
-      }
-  );
+  // privacy가 'couple'이고 오늘 날짜에 일기가 있는지 확인하는 쿼리
+  const checkQuery = `SELECT COUNT(*) as count FROM diarytable WHERE user_id = ? AND privacy = ? AND diary_date = ?`;
+  
+  try {
+    const [checkResults] = await db.query(checkQuery, [user_id, 'Couple', diary_date]);
+
+    if (checkResults[0].count > 0) {
+      return res.status(401).json({ error: "Diary entry for today with privacy 'Couple' already exists." });
+    }
+
+    // 일기 작성 쿼리
+    const query = `INSERT INTO diarytable (title, user_id, content, feeling, privacy, diary_date) VALUES (?, ?, ?, ?, ?, ?)`;
+    const [results] = await db.query(query, [title, user_id, content, feeling, privacy, diary_date]);
+    
+    console.log("Query Results:", results);
+    res.status(200).json(results);
+  } catch (err) {
+    console.error("Database Error:", err);
+    res.status(500).json({ error: "Failed to write diary entry" });
+  }
 });
 
 //search 엔드포인트
-app.get("/api/diary", async (req, res) => {
-  const {user_id} = req.query;
+app.post("/search-diary", async (req, res) => {
+  const { user_id } = req.body;
+  console.log("user_id:", user_id); // user_id가 제대로 전달되는지 확인
   const query = "SELECT * FROM diarytable WHERE user_id = ?";
-
   try {
-    const [results] = await db.query(query,[user_id]); // Promise 기반 사용
+    const [results] = await db.query(query, [user_id]); // Promise 기반 사용
+    console.log("Search Results:", results);
     res.status(200).json(results);
   } catch (err) {
     console.error("Database Error:", err);
     res.status(500).json({ error: "Failed to fetch diary entries" });
   }
 });
+
+//수정 데이터 받아오기
+app.post("/edit-search", async (req, res) => {
+  const {id} = req.body;
+  const query = "SELECT * FROM diarytable WHERE id = ?";
+  console.log("id:", id);
+  try {
+    const [results] = await db.query(query,[id]); // Promise 기반 사용
+    console.log("edit-search result :", results[0]);
+    res.status(200).json(results[0]);
+  } catch (err) {
+    console.error("Database Error:", err);
+    res.status(500).json({ error: "Failed to fetch diary entries" });
+  }
+});
+
+//수정데이터 업로드
+app.post("/write-diary", async (req, res) => {
+  const { title, id, user_id, content, feeling, privacy, diary_date } = req.body;
+  const query = `INSERT INTO diarytable (title, user_id, content, feeling, privacy, diary_date) VALUES (?, ?, ?, ?, ?, ?)`;
+
+  try {
+      console.log("update try");
+      const [results] = await db.query(query, [title, user_id,content, feeling, privacy, diary_date, id]); // Promise 기반 사용
+      console.log("update Results:", results);
+      res.status(200).json(results[0]);
+  } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: "Failed to update data into diarytable" });
+  }
+});
+
+//UPDATE
+app.post("/edit-diary", async (req, res) => {
+  const { title, id, user_id, content, feeling, privacy, diary_date } = req.body;
+  const query = `UPDATE diarytable SET title = ?, user_id = ?,content = ?, feeling = ?, privacy = ?, diary_date = ? WHERE id = ?`;
+
+  try {
+      const [results] = await db.query(query, [title, user_id, content, feeling, privacy, diary_date, id]); // Promise 기반 사용
+      console.log("edit Results:", results);
+      const [result] = await db.query("SELECT * FROM diarytable WHERE id = ?", [id]);
+      console.log("edit result :", result[0]);
+      res.status(200).json(result[0]);
+  } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: "Failed to edit data into diarytable" });
+  }
+})
+
 
 // 마이페이지 정보 가져오기
 app.post("/mypage",authenticateToken, async(req,res) =>{
