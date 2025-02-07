@@ -262,7 +262,7 @@ socketIO.on("connection", (socket) => {
 app.post('/chat/list', authenticateJWT, function (req, res) {
   const { id } = req.user;
   const {group_id} = req.body;
-  console.log('chat list id ; ', id);
+  console.log('chat list id : ', id, "group_id: ",group_id);
   const group = chats.groups.find((group) => group.group_id === group_id);
 
   if (group) {
@@ -324,6 +324,54 @@ app.post('/Home', async (req, res) => {
     res.status(500).json({ success: false, message: '서버 오류' });
   }
 });
+
+//자동로그인
+app.post('/verify-token', async (req, res) => {
+  const { token } = req.body;
+
+  if (!token) {
+    return res.status(400).json({ 
+      success: false, 
+      message: "Token and ID are required" 
+    });
+  }
+
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const userId = decoded.id; // 혹은 decoded.id 등 실제 필드명 사용
+    const [user] = await db.query("SELECT * FROM users WHERE id = ?", [userId]);
+
+    if (!user || user.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    // 모든 검증을 통과하면 성공 응답
+    res.status(200).json({ 
+      success: true, 
+      message: "Token is valid",
+      user: user[0], 
+    });
+
+  } catch (error) {
+    console.error("Token verification error:", error);
+    
+    if (error.name === 'TokenExpiredError') {
+      return res.status(401).json({ 
+        success: false, 
+        message: "Token has expired" 
+      });
+    }
+    
+    res.status(401).json({ 
+      success: false, 
+      message: "Invalid token" 
+    });
+  }
+});
+
 
 //로그인
 app.post("/login", async (req, res) => {
