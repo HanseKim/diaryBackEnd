@@ -84,7 +84,7 @@ async function sendNotification(token, title, body) {
 
 // 매일 특정 시간에 알림 보내기
 //"분, 시, 일, 월, 요일" 순서
-cron.schedule('21 11 * * *', async () => {
+cron.schedule('51 23 * * *', async () => {
   try {
     // DB에서 모든 사용자의 FCM 토큰 가져오기
     const [users] = await db.query('SELECT fcm_token FROM users WHERE fcm_token IS NOT NULL');
@@ -103,7 +103,7 @@ cron.schedule('21 11 * * *', async () => {
   } catch (error) {
     console.error('Error sending daily notifications:', error);
   }
-},{ timezone: "Asia/Seoul" });
+}, { timezone: "Asia/Seoul" });
 
 //토큰이 유효한지 확인하는 미들웨어
 const authenticateToken = (req, res, next) => {
@@ -222,7 +222,7 @@ socketIO.on("connection", (socket) => {
     const group = chats.groups.find((group) => group.group_id === roomId);
     if (group) {
       if (group.messages.length > 0) {
-        console.log(group.messages.at(0).user, ' and ' ,socket.user.id)
+        console.log(group.messages.at(0).user, ' and ', socket.user.id)
         if (group.messages.at(0).user !== socket.user.id) {
           socketIO.in(group.group_id).emit("cccc", { data: group.messages });
           group.messages = [];
@@ -242,7 +242,7 @@ socketIO.on("connection", (socket) => {
   });
 
   socket.on("new message", (data, group_id) => {
-    
+
     const roomSize = socketIO.sockets.adapter.rooms.get(group_id)?.size || 0;
     if (roomSize < 2) {
       const group = chats.groups.find(g => g.group_id === group_id);
@@ -261,14 +261,14 @@ socketIO.on("connection", (socket) => {
 
 app.post('/chat/list', authenticateJWT, function (req, res) {
   const { id } = req.user;
-  const {group_id} = req.body;
-  console.log('chat list id : ', id, "group_id: ",group_id);
+  const { group_id } = req.body;
+  console.log('chat list id : ', id, "group_id: ", group_id);
   const group = chats.groups.find((group) => group.group_id === group_id);
 
   if (group) {
     if (group.messages.length > 0) {
       if (group.messages.at(0).user !== id) {
-        
+
         res.status(200).json({ msg: group.messages });
         console.log('send');
       }
@@ -281,11 +281,26 @@ app.post('/chat/list', authenticateJWT, function (req, res) {
 
 app.post('/chat/findGroup', authenticateJWT, async function (req, res) {
   const { id } = req.user;
-  const [group_id] = await db.query("SELECT group_id FROM users WHERE id = ?", [id]);
-  console.log('group_id : ', group_id[0].group_id);
-  res.status(200).json({result : group_id[0].group_id});
+  try {
+    const [group_id] = await db.query("SELECT group_id FROM users WHERE id = ?", [id]);
+    if (group_id.length > 0) {
+      console.log('group_id : ', group_id[0].group_id);
+      if (group_id[0].group_id == null) {
+        res.status(200).json({ success: false, result: "" });
+      }
+      else {
+        res.status(200).json({ success: true, result: group_id[0].group_id });
+      }
+    }
+    else {
+      res.status(200).json({ success: false, result: '' });
+    }
+  }
+  catch (error) {
+    console.log(error);
+    res.status(500).json({ success: false, message: '서버 오류' });
+  }
 });
-
 
 app.get("/", (req, res) => {
   res.json(chatgroups);
@@ -299,7 +314,7 @@ app.post('/Detail', async (req, res) => {
     const [results] = await db.query(sql, [user_id, diary_date]);
     console.log("Detail Results:", results);
     res.json({ success: true, message: '조회 성공', data: results });
-  } catch(err){
+  } catch (err) {
     console.error('Error executing query:', err.message);
     res.status(500).json({ success: false, message: '서버 오류' });
   }
@@ -325,7 +340,9 @@ app.post('/Home', async (req, res) => {
   }
 });
 
+
 //자동로그인
+/*
 app.post('/verify-token', async (req, res) => {
   const { token } = req.body;
 
@@ -371,7 +388,7 @@ app.post('/verify-token', async (req, res) => {
     });
   }
 });
-
+*/
 
 //로그인
 app.post("/login", async (req, res) => {
@@ -510,8 +527,6 @@ app.post("/login", async (req, res) => {
   }
 });
 
-
-
 //회원가입
 app.post("/register", async (req, res) => {
   const { nickname, id, password } = req.body;
@@ -540,7 +555,7 @@ app.post('/write-diary', async (req, res) => {
 
   // privacy가 'couple'이고 오늘 날짜에 일기가 있는지 확인하는 쿼리
   const checkQuery = `SELECT COUNT(*) as count FROM diarytable WHERE user_id = ? AND privacy = ? AND diary_date = ?`;
-  
+
   try {
     const [checkResults] = await db.query(checkQuery, [user_id, 'Couple', diary_date]);
 
@@ -551,7 +566,7 @@ app.post('/write-diary', async (req, res) => {
     // 일기 작성 쿼리
     const query = `INSERT INTO diarytable (title, user_id, content, feeling, privacy, diary_date) VALUES (?, ?, ?, ?, ?, ?)`;
     const [results] = await db.query(query, [title, user_id, content, feeling, privacy, diary_date]);
-    
+
     console.log("Query Results:", results);
     res.status(200).json(results);
   } catch (err) {
@@ -577,11 +592,11 @@ app.post("/search-diary", async (req, res) => {
 
 //수정 데이터 받아오기
 app.post("/edit-search", async (req, res) => {
-  const {id} = req.body;
+  const { id } = req.body;
   const query = "SELECT * FROM diarytable WHERE id = ?";
   console.log("id:", id);
   try {
-    const [results] = await db.query(query,[id]); // Promise 기반 사용
+    const [results] = await db.query(query, [id]); // Promise 기반 사용
     console.log("edit-search result :", results[0]);
     res.status(200).json(results[0]);
   } catch (err) {
@@ -596,13 +611,13 @@ app.post("/write-diary", async (req, res) => {
   const query = `INSERT INTO diarytable (title, user_id, content, feeling, privacy, diary_date) VALUES (?, ?, ?, ?, ?, ?)`;
 
   try {
-      console.log("update try");
-      const [results] = await db.query(query, [title, user_id,content, feeling, privacy, diary_date, id]); // Promise 기반 사용
-      console.log("update Results:", results);
-      res.status(200).json(results[0]);
+    console.log("update try");
+    const [results] = await db.query(query, [title, user_id, content, feeling, privacy, diary_date, id]); // Promise 기반 사용
+    console.log("update Results:", results);
+    res.status(200).json(results[0]);
   } catch (err) {
-      console.error(err);
-      res.status(500).json({ error: "Failed to update data into diarytable" });
+    console.error(err);
+    res.status(500).json({ error: "Failed to update data into diarytable" });
   }
 });
 
@@ -612,57 +627,21 @@ app.post("/edit-diary", async (req, res) => {
   const query = `UPDATE diarytable SET title = ?, user_id = ?,content = ?, feeling = ?, privacy = ?, diary_date = ? WHERE id = ?`;
 
   try {
-      const [results] = await db.query(query, [title, user_id, content, feeling, privacy, diary_date, id]); // Promise 기반 사용
-      console.log("edit Results:", results);
-      const [result] = await db.query("SELECT * FROM diarytable WHERE id = ?", [id]);
-      console.log("edit result :", result[0]);
-      res.status(200).json(result[0]);
+    const [results] = await db.query(query, [title, user_id, content, feeling, privacy, diary_date, id]); // Promise 기반 사용
+    console.log("edit Results:", results);
+    const [result] = await db.query("SELECT * FROM diarytable WHERE id = ?", [id]);
+    console.log("edit result :", result[0]);
+    res.status(200).json(result[0]);
   } catch (err) {
-      console.error(err);
-      res.status(500).json({ error: "Failed to edit data into diarytable" });
+    console.error(err);
+    res.status(500).json({ error: "Failed to edit data into diarytable" });
   }
 })
 
-
-// 마이페이지 정보 가져오기
-app.post("/mypage",authenticateToken, async(req,res) =>{
-  const {id} = req.body;
-  try{
-    const[result] = await db.query("SELECT * FROM users WHERE id = ?",[id])
-    if (result.affectedRows > 0) {
-      res.status(200).json({ success: true, message: "Search User successfully." });
-    } else {
-      res.status(404).json({ success: false, message: "User not found." });
-    }
-  } catch (error) {
-    console.error("Error during user profile search:", error);
-    res.status(500).json({ success: false, message: "Internal server error." });
-  }
-})
 
 // 마이페이지에서 유저 정보 수정
-app.post("/userprofile",authenticateToken, async (req, res) => {
-  const { id, date, options } = req.body;
-  try {
-    const query = `UPDATE users SET date = ?, options = ? WHERE id = ?`;
-    const [result] = await db.query(query, [date, options, id]);
-
-    // 업데이트 성공 여부 확인
-    if (result.affectedRows > 0) {
-      res.status(200).json({ success: true, message: "User profile updated successfully." });
-    } else {
-      res.status(404).json({ success: false, message: "User not found." });
-    }
-  } catch (error) {
-    console.error("Error during user profile update:", error);
-    res.status(500).json({ success: false, message: "Internal server error." });
-  }
-});
-
-// 커플 정보 가져오고, 수정하기
-app.post("/coupleprofile",authenticateToken, async (req, res) => {
-  const { nickname, id, coupleName, month_diary, all_diary } = req.body;
-
+app.post("/userprofile", authenticateToken, async (req, res) => {
+  const { nickname, id, date, coupleName, month_diary, all_diary } = req.body;
   try {
     // nickname으로 사용자를 조회
     const [userResult] = await db.query(
@@ -681,7 +660,7 @@ app.post("/coupleprofile",authenticateToken, async (req, res) => {
     // 사용자가 있는 경우
     const targetUser = userResult[0];
 
-    if(targetUser.coupleName != null){
+    if (targetUser.coupleName != null) {
       console.log("Already a couple:", targetUser.coupleName); // 디버깅용 로그
       return res.status(404).json({
         success: false,
@@ -691,12 +670,12 @@ app.post("/coupleprofile",authenticateToken, async (req, res) => {
 
     // coupleName 업데이트
     const [updateResult] = await db.query(
-      `UPDATE users SET coupleName = ?, couple_month = ?, couple_all = ?, group_id = ? WHERE id = ?`,
-      [targetUser.nickname, targetUser.month_diary, targetUser.all_diary, `${nickname}${targetUser.nickname}`, id]
+      `UPDATE users SET date = ?, coupleName = ?, couple_month = ?, couple_all = ?, group_id = ? WHERE id = ?`,
+      [date,targetUser.nickname, targetUser.month_diary, targetUser.all_diary, `${nickname}${targetUser.nickname}`, id]
     );
     const [updateResult2] = await db.query(
-      `UPDATE users SET coupleName = ?, couple_month =?, couple_all = ?, group_id = ? WHERE nickname = ?`,
-      [nickname, month_diary, all_diary, `${nickname}${targetUser.nickname}`, targetUser.nickname]
+      `UPDATE users SET date = ?, coupleName = ?, couple_month =?, couple_all = ?, group_id = ? WHERE nickname = ?`,
+      [date, nickname, month_diary, all_diary, `${nickname}${targetUser.nickname}`, targetUser.nickname]
     );
 
 
@@ -715,14 +694,10 @@ app.post("/coupleprofile",authenticateToken, async (req, res) => {
       });
     }
   } catch (error) {
-    console.error("Error during couple profile update:", error);
-    res.status(500).json({
-      success: false,
-      message: "Internal server error.",
-    });
+    console.error("Error during user profile update:", error);
+    res.status(500).json({ success: false, message: "Internal server error." });
   }
 });
-
 
 http.listen(PORT, () => {
   console.log(`Server is listeing on ${PORT}`);
