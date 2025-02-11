@@ -638,6 +638,143 @@ app.post("/edit-diary", async (req, res) => {
   }
 })
 
+// 유저 프로필 정보 가져오기
+app.get("/userprofile/:id", authenticateToken, async (req, res) => {
+  const userId = req.params.id;
+
+  try {
+    // 사용자 기본 정보 조회
+    const [userResult] = await db.query(
+      `SELECT nickname, id, date, month_diary, all_diary, coupleName, couple_month, couple_all 
+       FROM users WHERE id = ?`,
+      [userId]
+    );
+
+    if (!userResult || userResult.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found"
+      });
+    }
+
+    const user = userResult[0];
+
+    // 최근 30일간의 사용자 다이어리 통계 (feeling별)
+    const [diary] = await db.query(
+      `SELECT feeling, COUNT(*) AS count 
+       FROM diarytable 
+       WHERE user_id = ? 
+         AND privacy = 'Couple' 
+         AND diary_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+         AND feeling IN (1, 2, 3, 4, 5)
+       GROUP BY feeling
+       ORDER BY feeling`,
+      [userId]
+    );
+
+    // 커플이 있는 경우 커플의 다이어리 통계도 조회
+    let coupleDiary = [];
+    if (user.coupleName) {
+      [coupleDiary] = await db.query(
+        `SELECT feeling, COUNT(*) AS count 
+         FROM diarytable 
+         WHERE user_id = ? 
+           AND privacy = 'Couple' 
+           AND diary_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+           AND feeling IN (1, 2, 3, 4, 5)
+         GROUP BY feeling
+         ORDER BY feeling`,
+        [user.coupleName]
+      );
+    }
+
+    // 다이어리 통계 데이터를 객체로 변환
+    const diaryCounts = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+    const coupleCounts = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+
+    diary.forEach(entry => {
+      diaryCounts[entry.feeling] = entry.count;
+    });
+
+    coupleDiary.forEach(entry => {
+      coupleCounts[entry.feeling] = entry.count;
+    });
+
+    // 최신 일기 통계 업데이트
+    const [monthDiaryCount] = await db.query(
+      `SELECT COUNT(*) AS count 
+       FROM diarytable 
+       WHERE user_id = ? 
+         AND privacy = 'Couple' 
+         AND diary_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)`,
+      [userId]
+    );
+
+    const [allDiaryCount] = await db.query(
+      `SELECT COUNT(*) AS count 
+       FROM diarytable 
+       WHERE user_id = ? AND privacy = 'Couple'`,
+      [userId]
+    );
+
+    // 커플 일기 통계
+    let coupleMonth = 0;
+    let coupleAll = 0;
+    if (user.coupleName) {
+      const [coupleMonthCount] = await db.query(
+        `SELECT COUNT(*) AS count 
+         FROM diarytable 
+         WHERE user_id = ? 
+           AND privacy = 'Couple' 
+           AND diary_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)`,
+        [user.coupleName]
+      );
+
+      const [coupleAllCount] = await db.query(
+        `SELECT COUNT(*) AS count 
+         FROM diarytable 
+         WHERE user_id = ? AND privacy = 'Couple'`,
+        [user.coupleName]
+      );
+
+      coupleMonth = coupleMonthCount[0].count || 0;
+      coupleAll = coupleAllCount[0].count || 0;
+    }
+
+    // DB 업데이트
+    await db.query(
+      `UPDATE users 
+       SET month_diary = ?, all_diary = ?, 
+           couple_month = ?, couple_all = ? 
+       WHERE id = ?`,
+      [monthDiaryCount[0].count, allDiaryCount[0].count, coupleMonth, coupleAll, userId]
+    );
+
+    // 응답 데이터 구성
+    const userInfo = {
+      ...user,
+      diaryCounts,
+      coupleCounts,
+      month_diary: monthDiaryCount[0].count,
+      all_diary: allDiaryCount[0].count,
+      couple_month: coupleMonth,
+      couple_all: coupleAll
+    };
+
+    res.status(200).json({
+      success: true,
+      message: "Successfully retrieved user profile",
+      userInfo
+    });
+
+  } catch (error) {
+    console.error("Error fetching user profile:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error"
+    });
+  }
+});
 
 // 마이페이지에서 유저 정보 수정
 app.post("/userprofile", authenticateToken, async (req, res) => {
