@@ -836,6 +836,71 @@ app.post("/userprofile", authenticateToken, async (req, res) => {
   }
 });
 
+// 커플 관계 삭제
+app.post("/delete-couple", authenticateToken, async (req, res) => {
+  const { id } = req.user; // JWT에서 현재 사용자 ID 가져오기
+  
+  try {
+    // 현재 사용자의 커플 정보 조회
+    const [userResult] = await db.query(
+      "SELECT coupleName FROM users WHERE id = ?",
+      [id]
+    );
+
+    if (!userResult || userResult.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found"
+      });
+    }
+
+    const coupleName = userResult[0].coupleName;
+
+    if (!coupleName) {
+      return res.status(400).json({
+        success: false,
+        message: "No couple relationship exists"
+      });
+    }
+
+    // 현재 사용자와 커플의 정보 모두 초기화
+    const updates = await Promise.all([
+      // 현재 사용자의 커플 관련 정보 초기화
+      db.query(
+        `UPDATE users 
+         SET coupleName = NULL, 
+             couple_month = NULL, 
+             couple_all = NULL, 
+             group_id = NULL 
+         WHERE id = ?`,
+        [id]
+      ),
+      // 상대방의 커플 관련 정보 초기화
+      db.query(
+        `UPDATE users 
+         SET coupleName = NULL, 
+             couple_month = NULL, 
+             couple_all = NULL, 
+             group_id = NULL 
+         WHERE nickname = ?`,
+        [coupleName]
+      )
+    ]);
+
+    res.status(200).json({
+      success: true,
+      message: "Couple relationship has been deleted successfully"
+    });
+
+  } catch (error) {
+    console.error("Error deleting couple relationship:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error"
+    });
+  }
+});
+
 http.listen(PORT, () => {
   console.log(`Server is listeing on ${PORT}`);
 });
