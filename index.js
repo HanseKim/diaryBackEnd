@@ -839,12 +839,12 @@ app.post("/userprofile/all", authenticateToken, async (req, res) => {
 
 // 마이페이지에서 유저 정보 수정
 app.post("/userprofile/date", authenticateToken, async (req, res) => {
-  const { nickname, id, date } = req.body;
+  const { id, date } = req.body;
   try {
     // nickname으로 사용자를 조회
     const [userResult] = await db.query(
-      `SELECT nickname, month_diary, all_diary FROM users WHERE nickname = ?`,
-      [nickname]
+      `SELECT nickname, month_diary, all_diary, coupleName FROM users WHERE id = ?`,
+      [id]
     );
 
     // 사용자가 있는 경우
@@ -855,9 +855,9 @@ app.post("/userprofile/date", authenticateToken, async (req, res) => {
       [date, id]
     );
 
-    let updateResult2
+    let updateResult2;
     if(targetUser.coupleName != null){
-      updateResult2 = await db.query(
+      [updateResult2] = await db.query(
         `UPDATE users SET date = ? WHERE nickname = ?`,
         [date, targetUser.coupleName]
       );
