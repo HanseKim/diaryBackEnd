@@ -777,7 +777,7 @@ app.get("/userprofile/:id", authenticateToken, async (req, res) => {
 });
 
 // 마이페이지에서 유저 정보 수정
-app.post("/userprofile", authenticateToken, async (req, res) => {
+app.post("/userprofile/all", authenticateToken, async (req, res) => {
   const { nickname, id, date, coupleName, month_diary, all_diary } = req.body;
   try {
     // nickname으로 사용자를 조회
@@ -823,6 +823,50 @@ app.post("/userprofile", authenticateToken, async (req, res) => {
         coupleName: targetUser.nickname,
         month_diary: targetUser.month_diary,
         all_diary: targetUser.all_diary,
+      });
+    } else {
+      return res.status(404).json({
+        success: false,
+        message: "User not found.",
+      });
+    }
+  } catch (error) {
+    console.error("Error during user profile update:", error);
+    res.status(500).json({ success: false, message: "Internal server error." });
+  }
+});
+
+
+// 마이페이지에서 유저 정보 수정
+app.post("/userprofile/date", authenticateToken, async (req, res) => {
+  const { nickname, id, date } = req.body;
+  try {
+    // nickname으로 사용자를 조회
+    const [userResult] = await db.query(
+      `SELECT nickname, month_diary, all_diary FROM users WHERE nickname = ?`,
+      [nickname]
+    );
+
+    // 사용자가 있는 경우
+    const targetUser = userResult[0];
+
+    const [updateResult] = await db.query(
+      `UPDATE users SET date = ? WHERE id = ?`,
+      [date, id]
+    );
+
+    let updateResult2
+    if(targetUser.coupleName != null){
+      updateResult2 = await db.query(
+        `UPDATE users SET date = ? WHERE nickname = ?`,
+        [date, targetUser.coupleName]
+      );
+    }
+
+    if (updateResult.affectedRows > 0 && (updateResult2 ? updateResult2.affectedRows > 0 : true)) {
+      return res.status(200).json({
+        success: true,
+        message: "UserDate updated successfully."
       });
     } else {
       return res.status(404).json({
