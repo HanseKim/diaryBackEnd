@@ -160,10 +160,16 @@ socketIO.on("connection", (socket) => {
 
     const group = chats.groups.find(g => g.group_id === roomId);
     if (group && group.messages.length > 0) {
-      console.log("emit to group");
-      await socketIO.to(roomId).emit("new msg set", group.messages, group.messages.at(0).id);
-      group.messages = [];
-      console.log(chats);
+      console.log(group.messages.at(0).user , ', ' , socket.user.id);
+      if (group.messages.at(0).user === socket.user.id) {
+
+      }
+      else {
+        console.log("emit to group");
+        await socketIO.to(roomId).emit("new msg set", group.messages, group.messages.at(0).user);
+        group.messages = [];
+        console.log(chats);
+      }
     }
   });
 
