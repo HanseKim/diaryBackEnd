@@ -3,7 +3,7 @@ const router = express.Router();
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const db = require('../controllers/db_pool.js');
-const JWT_SECRET = "diary app key for jwt"; 
+const JWT_SECRET = "diary app key for jwt";
 const authenticateJWT = require('../auth/authenticate.js');
 
 // 기본 호스팅 주소 /login

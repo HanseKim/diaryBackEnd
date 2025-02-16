@@ -149,53 +149,20 @@ socketIO.use(authenticateSocket); // JWT 인증 적용
 socketIO.on("connection", (socket) => {
   console.log(`${socket.user.id} user is just connected`);
 
-  app.get('/test/send', function (req, res) {
-    const { roomId } = req.body;
-    const roomSize = socketIO.sockets.adapter.rooms.get(roomId)?.size || 0;
-    if (roomSize < 2) {
-      const group = chats.groups.find(g => g.group_id === roomId);
-
-      if (group) {
-        group.messages.push({ id: '14', user: 'test2', text: 'hello socket', date: "2025-01-01" });
-      } else {
-        console.error(`Group with id "${roomId}" not found`);
-      }
-    }
-    else {
-      socketIO.to(roomId).emit("new msg arrive", { id: '34', user: 'test2', text: 'hello socket', date: "2025-01-01" });
-    }
-    res.json({ success: true });
-  });
-
-  async function sendRoomChat(roomId) {
-    const group = chats.groups.find((group) => group.group_id === roomId);
-    try {
-
-      await socketIO.in(group.group_id).emit("cccc", { data: group.messages });
-      console.log("successfully send chat");
-    } catch (error) {
-      console.error("Error sending message:", error);
-    }
-  }
 
   socket.on("joinRoom", async (roomId) => {
-
+    const uid = socket.user.id
     roomId = String(roomId);
-    socket.join(roomId);
+    await socket.join(roomId);
+    console.log("joined room : ", String(roomId), " , user : ", socket.user.id);
 
-    const group = chats.groups.find((group) => group.group_id === roomId);
-    if (group) {
-      if (group.messages.length > 0) {
-        console.log(group.messages.at(0).user, ' and ', socket.user.id)
-        if (group.messages.at(0).user !== socket.user.id) {
-          socketIO.in(group.group_id).emit("cccc", { data: group.messages });
-          group.messages = [];
-          console.log('send');
-        }
-      }
-    }
-    else {
-      chats.groups.push({ group_id: roomId, messages: [] });
+    const group = chats.groups.find(g => g.group_id === roomId);
+    console.log(group.messages);
+    if (group && group.messages.length > 0) {
+      console.log("emit to group");
+      await socketIO.to(roomId).emit("new msg set", group.messages, group.messages.at(0).id);
+      group.messages = [];
+      console.log(chats);
     }
   });
 
@@ -206,19 +173,25 @@ socketIO.on("connection", (socket) => {
   });
 
   socket.on("new message", (data, group_id) => {
-
+    console.log("message send process");
+    const uid = socket.user.id
+    console.log(uid, " sended message");
     const roomSize = socketIO.sockets.adapter.rooms.get(group_id)?.size || 0;
+    console.log("room size : " , roomSize);
     if (roomSize < 2) {
       const group = chats.groups.find(g => g.group_id === group_id);
 
       if (group) {
         group.messages.push(data);
+        console.log("added to chat data");
+        console.log("result : " , group);
       } else {
         console.error(`Group with id "${group_id}" not found`);
       }
     }
     else {
-      socketIO.to(group_id).emit("new msg arrive", data);
+      console.log("send : ", data);
+      socket.to(group_id).emit("new msg arrive", data, uid);
     }
   });
 });
@@ -226,19 +199,21 @@ socketIO.on("connection", (socket) => {
 app.post('/chat/list', authenticateJWT, function (req, res) {
   const { id } = req.user;
   const { group_id } = req.body;
-  console.log('chat list id : ', id, "group_id: ", group_id);
+  console.log('from chat list, user id : ', id, " and group_id : ", group_id);
   const group = chats.groups.find((group) => group.group_id === group_id);
-
+  console.log('finded group : ', group);
   if (group) {
     if (group.messages.length > 0) {
       if (group.messages.at(0).user !== id) {
-
         res.status(200).json({ msg: group.messages });
-        console.log('send');
+        //console.log('send');
       }
     }
   }
   else {
+    console.log("added group to chat");
+    chats.groups.push({ group_id: group_id, messages: [] });
+    console.log(chats);
     res.status(400);
   }
 });
@@ -248,7 +223,7 @@ app.post('/chat/findGroup', authenticateJWT, async function (req, res) {
   try {
     const [group_id] = await db.query("SELECT group_id FROM users WHERE id = ?", [id]);
     if (group_id.length > 0) {
-      console.log('group_id : ', group_id[0].group_id);
+      //console.log('group_id : ', group_id[0].group_id);
       if (group_id[0].group_id == null) {
         res.status(200).json({ success: false, result: "" });
       }
@@ -265,7 +240,6 @@ app.post('/chat/findGroup', authenticateJWT, async function (req, res) {
     res.status(500).json({ success: false, message: '서버 오류' });
   }
 });
-
 app.get("/", (req, res) => {
   res.json(chatgroups);
 });
