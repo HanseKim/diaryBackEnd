@@ -22,6 +22,8 @@ const cron = require('node-cron');
 const authenticateJWT = require('./auth/authenticate.js');
 //const authenticateSocket = require('./auth/authenticate.js')
 
+const JWT_SECRET = "diary app key for jwt";
+
 const authenticateSocket = (socket, next) => {
   const token = socket.handshake.auth.token;
 
@@ -157,7 +159,6 @@ socketIO.on("connection", (socket) => {
     console.log("joined room : ", String(roomId), " , user : ", socket.user.id);
 
     const group = chats.groups.find(g => g.group_id === roomId);
-    console.log(group.messages);
     if (group && group.messages.length > 0) {
       console.log("emit to group");
       await socketIO.to(roomId).emit("new msg set", group.messages, group.messages.at(0).id);
