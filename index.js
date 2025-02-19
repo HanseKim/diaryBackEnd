@@ -52,7 +52,7 @@ const detialRouter = require('./routes/detail');
 // 라우터 설정
 app.use('/login', loginRouter);
 app.use('/mypage', mypageRouter);
-app.use('/diary' ,diaryRouter);
+app.use('/diary', diaryRouter);
 app.use('/home', homeRouter);
 app.use('/detail', detialRouter);
 
@@ -117,7 +117,7 @@ async function sendNotification(token, title, body) {
 
 // 매일 특정 시간에 알림 보내기
 //"분, 시, 일, 월, 요일" 순서
-cron.schedule('51 23 * * *', async () => {
+cron.schedule('40 15 * * *', async () => {
   try {
     // DB에서 모든 사용자의 FCM 토큰 가져오기
     const [users] = await db.query('SELECT fcm_token FROM users WHERE fcm_token IS NOT NULL');
@@ -160,40 +160,79 @@ socketIO.on("connection", (socket) => {
 
     const group = chats.groups.find(g => g.group_id === roomId);
     if (group && group.messages.length > 0) {
-      console.log(group.messages.at(0).user , ', ' , socket.user.id);
-      if (group.messages.at(0).user === socket.user.id) {
-
-      }
-      else {
-        console.log("emit to group");
-        await socketIO.to(roomId).emit("new msg set", group.messages, group.messages.at(0).user);
+      console.log("emit to group");
+      await socketIO.to(roomId).emit("new msg set", group.messages, group.messages.at(0).user);
+      if (group.messages.at(0).user !== uid) {
         group.messages = [];
-        console.log(chats);
       }
+      console.log("after send : ", chats);
     }
   });
+  /*
+  socket.on("joinRoomChat", async (roomId) => {
+    const uid = socket.user.id
+    roomId = String(roomId);
+    await socket.join(roomId);
+    console.log("joined room by chatscreen : ", String(roomId), " , user : ", socket.user.id);
 
+    const group = chats.groups.find(g => g.group_id === roomId);
+    if (group && group.messages.length > 0) {
+
+      if (group.messages.at(0).user !== uid) {
+        await socketIO.to(roomId).emit("chatSet", group.messages, group.messages.at(0).user);
+      }
+      console.log("after send : ", chats);
+    }
+  });
+  */
   // Room leave 이벤트
   socket.on("leaveRoom", (roomId) => {
     socket.leave(roomId);
+    socket.disconnect(true);
     console.log(`${socket.id} left room: ${roomId}`);
   });
 
-  socket.on("new message", (data, group_id) => {
+  socket.on("new message", async (data, group_id, username) => {
     console.log("message send process");
     const uid = socket.user.id
     console.log(uid, " sended message");
     const roomSize = socketIO.sockets.adapter.rooms.get(group_id)?.size || 0;
-    console.log("room size : " , roomSize);
+    console.log("room size : ", roomSize);
     if (roomSize < 2) {
       const group = chats.groups.find(g => g.group_id === group_id);
 
       if (group) {
         group.messages.push(data);
+        /*
+        if (group.messages.length > 0 && group.messages.at(0).user !== uid) {
+          await socketIO.to(roomId).emit("chatSet", group.messages, group.messages.at(0).user);
+        }
+          */
         console.log("added to chat data");
-        console.log("result : " , group);
+        console.log("result : ", group);
       } else {
-        console.error(`Group with id "${group_id}" not found`);
+        chats.groups.push({ group_id: group_id, messages: [] });
+      }
+
+      try {
+        // DB에서 모든 사용자의 FCM 토큰 가져오기
+        const sql = 'SELECT fcm_token FROM DiaryDB.users WHERE fcm_token IS NOT NULL AND coupleName = ' + username;
+        console.log(sql);
+        const [users] = await db.query('SELECT fcm_token FROM DiaryDB.users WHERE fcm_token IS NOT NULL AND coupleName = ?', [username]);
+        console.log("Fetched users:", users);
+
+        for (const user of users) {
+          if (user.fcm_token) {
+            const result = await sendNotification(
+              user.fcm_token,
+              '문자 알림',
+              data['text']
+            );
+            console.log("Notification result for user:", user, result);
+          }
+        }
+      } catch (error) {
+        console.error('Error sending daily notifications:', error);
       }
     }
     else {
@@ -215,14 +254,17 @@ app.post('/chat/list', authenticateJWT, function (req, res) {
         res.status(200).json({ msg: group.messages });
         //console.log('send');
       }
+      else res.status(200).json({ msg: [] });
     }
+    else res.status(200).json({ msg: [] });
   }
   else {
     console.log("added group to chat");
     chats.groups.push({ group_id: group_id, messages: [] });
     console.log(chats);
-    res.status(400);
+    res.status(200).json({ msg: [] });
   }
+
 });
 
 app.post('/chat/findGroup', authenticateJWT, async function (req, res) {

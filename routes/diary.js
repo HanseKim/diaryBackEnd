@@ -64,13 +64,15 @@ router.post("/edit-search", async (req, res) => {
 //UPDATE
 router.post("/edit-diary", async (req, res) => {
   const { title, id, user_id, content, feeling, privacy, diary_date } = req.body;
-  const query = `UPDATE diarytable SET title = ?, user_id = ?,content = ?, feeling = ?, privacy = ?, diary_date = ? WHERE id = ?`;
+  const query = `UPDATE diarytable SET title = ?, user_id = ?, content = ?, feeling = ?, privacy = ?, diary_date = ? WHERE id = ?`;
 
   try {
     const [results] = await db.query(query, [title, user_id, content, feeling, privacy, diary_date, id]); // Promise 기반 사용
     console.log("edit Results:", results);
+    
     const [result] = await db.query("SELECT * FROM diarytable WHERE id = ?", [id]);
     console.log("edit result :", result[0]);
+
     res.status(200).json(result[0]);
   } catch (err) {
     console.error(err);
