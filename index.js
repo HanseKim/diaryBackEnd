@@ -11,7 +11,7 @@ const socketIO = require("socket.io")(http, {
     //허용할 도메인 설정
     cors: {
       origin: "*", // or specific origin
-      methods: ["GET", "POST"],
+      methods: ["GET", "POST", "DELETE"],
     },
   },
 });

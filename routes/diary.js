@@ -50,7 +50,6 @@ router.post("/search-diary", async (req, res) => {
 router.post("/edit-search", async (req, res) => {
   const { id } = req.body;
   const query = "SELECT * FROM diarytable WHERE id = ?";
-  console.log("id:", id);
   try {
     const [results] = await db.query(query, [id]); // Promise 기반 사용
     console.log("edit-search result :", results[0]);
@@ -79,5 +78,25 @@ router.post("/edit-diary", async (req, res) => {
     res.status(500).json({ error: "Failed to edit data into diarytable" });
   }
 })
+
+// DELETE 엔드포인트
+router.delete("/delete-diary", async (req, res) => {
+  const { id } = req.body;
+  const query = "DELETE FROM diarytable WHERE id = ?";
+  console.log("delete id:", id);
+  try {
+    const [results] = await db.query(query, [id]);
+
+    if (results.affectedRows === 0) {
+      return res.status(404).json({ error: "Diary entry not found" });
+    }
+
+    res.status(200).json({ message: "Diary entry deleted successfully" });
+  } catch (err) {
+    console.error("Database Error:", err);
+    res.status(500).json({ error: "Failed to delete diary entry" });
+  }
+});
+
 
 module.exports = router; 
