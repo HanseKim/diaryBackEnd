@@ -5,6 +5,8 @@ const cors = require("cors");
 const { normalize } = require("path");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
+require('dotenv').config(); // .env 파일 로드
+
 const { group } = require("console");
 const socketIO = require("socket.io")(http, {
   cors: {
@@ -22,7 +24,7 @@ const cron = require('node-cron');
 const authenticateJWT = require('./auth/authenticate.js');
 //const authenticateSocket = require('./auth/authenticate.js')
 
-const JWT_SECRET = "diary app key for jwt";
+const JWT_SECRET = process.env.JWT_SECRET;
 
 const authenticateSocket = (socket, next) => {
   const token = socket.handshake.auth.token;
@@ -105,9 +107,9 @@ async function sendNotification(token, title, body) {
 
   try {
     const response = await admin.messaging().send(message);
-    console.log("Notification Payload:", message);
+    //console.log("Notification Payload:", message);
 
-    console.log('Successfully sent message:', response);
+    //console.log('Successfully sent message:', response);
     return { success: true, response };
   } catch (error) {
     console.error('Error sending message:', error);
@@ -117,11 +119,11 @@ async function sendNotification(token, title, body) {
 
 // 매일 특정 시간에 알림 보내기
 //"분, 시, 일, 월, 요일" 순서
-cron.schedule('40 15 * * *', async () => {
+cron.schedule('00 22 * * *', async () => {
   try {
     // DB에서 모든 사용자의 FCM 토큰 가져오기
     const [users] = await db.query('SELECT fcm_token FROM users WHERE fcm_token IS NOT NULL');
-    console.log("Fetched users:", users);
+    //console.log("Fetched users:", users);
 
     for (const user of users) {
       if (user.fcm_token) {
@@ -130,7 +132,7 @@ cron.schedule('40 15 * * *', async () => {
           '일기 작성 시간입니다 ! 📝',
           '오늘 하루는 어떠셨나요? 소중한 추억을 기록해보세요.'
         );
-        console.log("Notification result for user:", user, result);
+        //console.log("Notification result for user:", user, result);
       }
     }
   } catch (error) {
@@ -156,60 +158,39 @@ socketIO.on("connection", (socket) => {
     const uid = socket.user.id
     roomId = String(roomId);
     await socket.join(roomId);
-    console.log("joined room : ", String(roomId), " , user : ", socket.user.id);
+    //console.log("joined room : ", String(roomId), " , user : ", socket.user.id);
 
     const group = chats.groups.find(g => g.group_id === roomId);
     if (group && group.messages.length > 0) {
-      console.log("emit to group");
+      //console.log("emit to group");
       await socketIO.to(roomId).emit("new msg set", group.messages, group.messages.at(0).user);
       if (group.messages.at(0).user !== uid) {
         group.messages = [];
       }
-      console.log("after send : ", chats);
+      //console.log("after send : ", chats);
     }
   });
-  /*
-  socket.on("joinRoomChat", async (roomId) => {
-    const uid = socket.user.id
-    roomId = String(roomId);
-    await socket.join(roomId);
-    console.log("joined room by chatscreen : ", String(roomId), " , user : ", socket.user.id);
-
-    const group = chats.groups.find(g => g.group_id === roomId);
-    if (group && group.messages.length > 0) {
-
-      if (group.messages.at(0).user !== uid) {
-        await socketIO.to(roomId).emit("chatSet", group.messages, group.messages.at(0).user);
-      }
-      console.log("after send : ", chats);
-    }
-  });
-  */
   // Room leave 이벤트
   socket.on("leaveRoom", (roomId) => {
     socket.leave(roomId);
     socket.disconnect(true);
-    console.log(`${socket.id} left room: ${roomId}`);
+    //console.log(`${socket.id} left room: ${roomId}`);
   });
 
   socket.on("new message", async (data, group_id, username) => {
-    console.log("message send process");
+    //console.log("message send process");
     const uid = socket.user.id
-    console.log(uid, " sended message");
+    //console.log(uid, " sended message");
     const roomSize = socketIO.sockets.adapter.rooms.get(group_id)?.size || 0;
-    console.log("room size : ", roomSize);
+    //console.log("room size : ", roomSize);
     if (roomSize < 2) {
       const group = chats.groups.find(g => g.group_id === group_id);
 
       if (group) {
         group.messages.push(data);
-        /*
-        if (group.messages.length > 0 && group.messages.at(0).user !== uid) {
-          await socketIO.to(roomId).emit("chatSet", group.messages, group.messages.at(0).user);
-        }
-          */
-        console.log("added to chat data");
-        console.log("result : ", group);
+        
+        //console.log("added to chat data");
+        //console.log("result : ", group);
       } else {
         chats.groups.push({ group_id: group_id, messages: [] });
       }
@@ -217,18 +198,18 @@ socketIO.on("connection", (socket) => {
       try {
         // DB에서 모든 사용자의 FCM 토큰 가져오기
         const sql = 'SELECT fcm_token FROM DiaryDB.users WHERE fcm_token IS NOT NULL AND coupleName = ' + username;
-        console.log(sql);
+        //console.log(sql);
         const [users] = await db.query('SELECT fcm_token FROM DiaryDB.users WHERE fcm_token IS NOT NULL AND coupleName = ?', [username]);
-        console.log("Fetched users:", users);
+        //console.log("Fetched users:", users);
 
         for (const user of users) {
           if (user.fcm_token) {
             const result = await sendNotification(
               user.fcm_token,
-              '문자 알림',
+              '채팅 알림',
               data['text']
             );
-            console.log("Notification result for user:", user, result);
+            //console.log("Notification result for user:", user, result);
           }
         }
       } catch (error) {
@@ -236,7 +217,7 @@ socketIO.on("connection", (socket) => {
       }
     }
     else {
-      console.log("send : ", data);
+      //console.log("send : ", data);
       socket.to(group_id).emit("new msg arrive", data, uid);
     }
   });
@@ -245,9 +226,9 @@ socketIO.on("connection", (socket) => {
 app.post('/chat/list', authenticateJWT, function (req, res) {
   const { id } = req.user;
   const { group_id } = req.body;
-  console.log('from chat list, user id : ', id, " and group_id : ", group_id);
+  //console.log('from chat list, user id : ', id, " and group_id : ", group_id);
   const group = chats.groups.find((group) => group.group_id === group_id);
-  console.log('finded group : ', group);
+  //console.log('finded group : ', group);
   if (group) {
     if (group.messages.length > 0) {
       if (group.messages.at(0).user !== id) {
@@ -259,9 +240,9 @@ app.post('/chat/list', authenticateJWT, function (req, res) {
     else res.status(200).json({ msg: [] });
   }
   else {
-    console.log("added group to chat");
+    //console.log("added group to chat");
     chats.groups.push({ group_id: group_id, messages: [] });
-    console.log(chats);
+    //console.log(chats);
     res.status(200).json({ msg: [] });
   }
 
@@ -289,74 +270,27 @@ app.post('/chat/findGroup', authenticateJWT, async function (req, res) {
     res.status(500).json({ success: false, message: '서버 오류' });
   }
 });
+
+app.post('/refresh/auth', authenticateJWT, async function (req, res) {
+  console.log("refreshiong");
+  const { id, username } = req.user;
+  try {
+    const token = jwt.sign(
+              { id: id, username: username },
+              JWT_SECRET,
+              { expiresIn: "3h" }
+            );
+      res.status(200).json({ success: true, token : token});
+  }
+  catch (error) {
+    console.log(error);
+    res.status(500).json({ success: false, message: '서버 오류' });
+  }
+});
+
 app.get("/", (req, res) => {
   res.json(chatgroups);
 });
-
-//자동로그인
-/*
-app.post('/verify-token', async (req, res) => {
-  const { token } = req.body;
-
-  if (!token) {
-    return res.status(400).json({ 
-      success: false, 
-      message: "Token and ID are required" 
-    });
-  }
-
-  try {
-    const decoded = jwt.verify(token, JWT_SECRET);
-    const userId = decoded.id; // 혹은 decoded.id 등 실제 필드명 사용
-    const [user] = await db.query("SELECT * FROM users WHERE id = ?", [userId]);
-
-    if (!user || user.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found",
-      });
-    }
-
-    // 모든 검증을 통과하면 성공 응답
-    res.status(200).json({ 
-      success: true, 
-      message: "Token is valid",
-      user: user[0], 
-    });
-
-  } catch (error) {
-    console.error("Token verification error:", error);
-    
-    if (error.name === 'TokenExpiredError') {
-      return res.status(401).json({ 
-        success: false, 
-        message: "Token has expired" 
-      });
-    }
-    
-    res.status(401).json({ 
-      success: false, 
-      message: "Invalid token" 
-    });
-  }
-});
-*/
-
-//수정데이터 업로드
-// app.post("/write-diary", async (req, res) => {
-//   const { title, id, user_id, content, feeling, privacy, diary_date } = req.body;
-//   const query = `INSERT INTO diarytable (title, user_id, content, feeling, privacy, diary_date) VALUES (?, ?, ?, ?, ?, ?)`;
-
-//   try {
-//     console.log("update try");
-//     const [results] = await db.query(query, [title, user_id, content, feeling, privacy, diary_date, id]); // Promise 기반 사용
-//     console.log("update Results:", results);
-//     res.status(200).json(results[0]);
-//   } catch (err) {
-//     console.error(err);
-//     res.status(500).json({ error: "Failed to update data into diarytable" });
-//   }
-// });
 
 http.listen(PORT, () => {
   console.log(`Server is listeing on ${PORT}`);

@@ -1,7 +1,7 @@
 const jwt = require('jsonwebtoken');
+require('dotenv').config();
 
-const JWT_SECRET = "diary app key for jwt";
-
+const JWT_SECRET = process.env.JWT_SECRET;
 // Middleware to authenticate the token In router
 const authenticateJWT = (req, res, next) => {
   const authHeader = req.headers.authorization;
@@ -11,12 +11,15 @@ const authenticateJWT = (req, res, next) => {
 
     jwt.verify(token, JWT_SECRET, (err, user) => {
       if (err) {
+        console.log("token error");
         return res.sendStatus(403); // 유효하지 않은 토큰
       }
+      //console.log("success");
       req.user = user; // 사용자 정보를 req 객체에 저장
       next();
     });
   } else {
+    console.log("token error");
     res.sendStatus(401); // 인증 헤더가 없음
   }
 };

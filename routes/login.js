@@ -3,7 +3,9 @@ const router = express.Router();
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const db = require('../controllers/db_pool.js');
-const JWT_SECRET = "diary app key for jwt";
+require('dotenv').config();
+
+const JWT_SECRET = process.env.JWT_SECRET;
 const authenticateJWT = require('../auth/authenticate.js');
 
 // 기본 호스팅 주소 /login
@@ -102,7 +104,7 @@ router.post("/", async (req, res) => {
            ORDER BY feeling`,
           [coupleId]
         );
-        console.log("CoupleName: ", coupleId)
+        //console.log("CoupleName: ", coupleId)
   
         // 다이어리 데이터를 객체로 변환
         const diaryCounts = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
@@ -118,7 +120,7 @@ router.post("/", async (req, res) => {
         const token = jwt.sign(
           { id: User.id, username: User.nickname },
           JWT_SECRET,
-          { expiresIn: "1h" }
+          { expiresIn: "3h" }
         );
   
         // 응답 데이터 구성
@@ -132,7 +134,7 @@ router.post("/", async (req, res) => {
           couple_all: coupleAll,
         };
   
-        console.log("Constructed User Info:", userInfo); // 디버깅 로그
+        //console.log("Constructed User Info:", userInfo); // 디버깅 로그
         res.status(200).json({ success: true, token, user: userInfo });
       } else if (!User) {
         res.status(404).json({ success: false, message: "해당 아이디의 유저가 없습니다." });
@@ -170,15 +172,15 @@ router.post("/register", async (req, res) => {
 
 // FCM 토큰 저장 엔드포인트
 router.post("/save-fcm-token", authenticateJWT, async (req, res) => {
-  const { token } = req.body;
+  const { fcm_token } = req.body;
   const { id } = req.user; // JWT에서 id 가져오기
-
+  console.log("setting fcm token");
   try {
-    const [result] = await db.query("UPDATE users SET fcm_token = ? WHERE id = ?", [token, id]);
+    const [result] = await db.query("UPDATE DiaryDB.users SET fcm_token = ? WHERE id = ?", [fcm_token, id]);
     if (result.affectedRows > 0) {
       res.status(200).json({ success: true, message: "FCM token saved successfully" });
     } else {
-      res.status(404).json({ success: false, message: "User not found" });
+      res.status(200).json({ success: false, message: "User not found" });
     }
   } catch (error) {
     console.error("Error saving FCM token:", error);
