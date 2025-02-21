@@ -88,18 +88,25 @@ async function sendNotification(token, title, body) {
     android: {
       priority: 'high',
       notification: {
-        sound: 'default',
-        priority: 'high',
         channelId: 'default',
-        visibility: 'public'
       },
     },
     apns: {
       payload: {
         aps: {
+          alert: {
+            title,
+            body,
+          },
           sound: 'default',
           badge: 1,
+          'mutable-content': 1,
+          'content-available': 1,
         },
+      },
+      headers: {
+        'apns-push-type': 'alert',
+        'apns-priority': '10',
       },
     },
     token,
@@ -119,7 +126,7 @@ async function sendNotification(token, title, body) {
 
 // 매일 특정 시간에 알림 보내기
 //"분, 시, 일, 월, 요일" 순서
-cron.schedule('00 22 * * *', async () => {
+cron.schedule('43 11 * * *', async () => {
   try {
     // DB에서 모든 사용자의 FCM 토큰 가져오기
     const [users] = await db.query('SELECT fcm_token FROM users WHERE fcm_token IS NOT NULL');
@@ -287,6 +294,7 @@ app.post('/refresh/auth', authenticateJWT, async function (req, res) {
     res.status(500).json({ success: false, message: '서버 오류' });
   }
 });
+
 
 app.get("/", (req, res) => {
   res.json(chatgroups);

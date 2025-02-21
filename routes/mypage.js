@@ -280,21 +280,23 @@ router.post("/delete-couple", authenticateJWT, async (req, res) => {
         // 현재 사용자의 커플 관련 정보 초기화
         db.query(
             `UPDATE users 
-            SET coupleName = NULL, 
-                couple_month = NULL, 
-                couple_all = NULL, 
-                group_id = NULL 
+              SET coupleName = NULL, 
+                  date = NULL,
+                  couple_month = NULL, 
+                  couple_all = NULL, 
+                  group_id = NULL 
             WHERE id = ?`,
             [id]
         ),
         // 상대방의 커플 관련 정보 초기화
         db.query(
             `UPDATE users 
-            SET coupleName = NULL, 
-                couple_month = NULL, 
-                couple_all = NULL, 
-                group_id = NULL 
-            WHERE nickname = ?`,
+              SET coupleName = NULL, 
+                  date = NULL,
+                  couple_month = NULL, 
+                  couple_all = NULL, 
+                  group_id = NULL 
+              WHERE nickname = ?`,
             [coupleName]
         )
         ]);

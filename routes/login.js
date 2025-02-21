@@ -176,7 +176,7 @@ router.post("/save-fcm-token", authenticateJWT, async (req, res) => {
   const { id } = req.user; // JWT에서 id 가져오기
   console.log("setting fcm token");
   try {
-    const [result] = await db.query("UPDATE DiaryDB.users SET fcm_token = ? WHERE id = ?", [fcm_token, id]);
+    const [result] = await db.query("UPDATE users SET fcm_token = ? WHERE id = ?", [fcm_token, id]);
     if (result.affectedRows > 0) {
       res.status(200).json({ success: true, message: "FCM token saved successfully" });
     } else {

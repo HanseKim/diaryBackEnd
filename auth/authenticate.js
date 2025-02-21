@@ -2,6 +2,7 @@ const jwt = require('jsonwebtoken');
 require('dotenv').config();
 
 const JWT_SECRET = process.env.JWT_SECRET;
+
 // Middleware to authenticate the token In router
 const authenticateJWT = (req, res, next) => {
   const authHeader = req.headers.authorization;
